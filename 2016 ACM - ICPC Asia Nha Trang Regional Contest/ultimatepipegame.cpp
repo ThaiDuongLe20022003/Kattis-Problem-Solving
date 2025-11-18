@@ -14,190 +14,174 @@
 #include <string>
 #include <queue>
 #include <bitset>
+#define int long long
+#define FOR(i, a, b) for (int i = (a), _b = (b); i <= _b; ++i)
+#define FORD(i, a, b) for (int i = (a), _b = (b); i >= _b; --i)
+#define REP(i, a) for (int i = 0, _a = (a); i < _a; ++i)
+
+#define DEBUG(X) { cerr << #X << " = " << (X) << endl; }
+#define PR(A, n) { cerr << #A << " = "; FOR(_, 1, n) cerr << A[_] << ' '; cerr << endl; }
+#define PR0(A, n) { cerr << #A << " = "; REP(_, n) cerr << A[_] << ' '; cerr << endl; }
+
+#define sqr(x) ((x) * (x))
+#define ll long long
+#define __builtin_popcount __builtin_popcountll
+#define SZ(x) ((int)(x).size())
 using namespace std;
-#define fi first
-#define se second
-#define pb push_back
-#define mp make_pair
-#define inf 1000000005
-#define all(a) (a).begin(), (a).end()
-#define ms(a,x) memset(a, x, sizeof(a))
-#define mod 1000000007
-#define sz(a) ((ll)(a).size())
 
-template<class T> int getbit(T s, int i) { return (s >> i) & 1; }
-template<class T> T onbit(T s, int i) { return s | (T(1) << i); }
-template<class T> T offbit(T s, int i) { return s & (~(T(1) << i)); }
-template<class T> int cntbit(T s) { return __builtin_popcount(s);}
-#define Rep(i,n) for(int i = 0; i < (n); ++i)
-#define Repd(i,n) for(int i = (n)-1; i >= 0; --i)
-#define For(i,a,b) for(int i = (a); i <= (b); ++i)
-#define Ford(i,a,b) for(int i = (a); i >= (b); --i)
+double safe_sqrt(double x) { return sqrt(max((double)0.0, x)); }
+int GI(ll& x) { return scanf("%lld", &x); }
 
-typedef unsigned long long ull;
-typedef long long ll;
-typedef long double ld;
-#define eps 1e-9
-typedef pair<int, int> II;
-typedef pair<ll, ll> LL;
-template<class T> T gcd(T a, T b){ T r; while (b != 0) { r = a % b; a = b; b = r; } return a;}
-template<class T> T lcm(T a, T b) { return a / gcd(a, b) * b; }
-#define PI (2 * acos((ld)0))
-#define linf (1ll << 60)
-#define y1 y32432
-#define y0 y435346
+template<class Flow=int, class Cost=int>
+struct MinCostFlow {
+    const Flow INF_FLOW = 1000111000;
+    const Cost INF_COST = 1000111000111000LL;
 
-#define maxv 5005
-#define maxe 20005
-#define maxn 22
+    int n, t, S, T;
+    Flow totalFlow;
+    Cost totalCost;
+    vector<int> last, visited;
+    vector<Cost> dis;
+    struct Edge {
+        int to;
+        Flow cap;
+        Cost cost;
+        int next;
+        Edge(int to, Flow cap, Cost cost, int next) :
+                to(to), cap(cap), cost(cost), next(next) {}
+    };
+    vector<Edge> edges;
 
-struct MincostFlow {
-    int n, s, t, E, adj[maxe], next[maxe], last[maxv], which[maxv];
-    ll totalCost, totalFlow, cap[maxe], flow[maxe], cost[maxe], pot[maxe], dist[maxv];
-
-    void init(int _n, int _s, int _t) {
-        n = _n; s = _s; t = _t;
-        ms(last, -1); E = 0;
+    MinCostFlow(int n) : n(n), t(0), totalFlow(0), totalCost(0), last(n, -1), visited(n, 0), dis(n, 0) {
+        edges.clear();
     }
 
-    void add(int u, int v, ll ca, ll co) {
-        adj[E] = v; cap[E] = ca; flow[E] = 0; cost[E] = +co; next[E] = last[u]; last[u] = E++;
-        adj[E] = u; cap[E] =  0; flow[E] = 0; cost[E] = -co; next[E] = last[v]; last[v] = E++;
+    int addEdge(int from, int to, Flow cap, Cost cost) {
+        edges.push_back(Edge(to, cap, cost, last[from]));
+        last[from] = t++;
+        edges.push_back(Edge(from, 0, -cost, last[to]));
+        last[to] = t++;
+        return t - 2;
     }
 
-    void bellman() {
-        bool stop = false;
-        ms(pot, 0);
-
-        while (!stop) {
-            stop = true;
-            Rep(u, n) for (int e = last[u]; e != -1; e = next[e]) if (flow[e] < cap[e]) {
-                int v = adj[e];
-                if (pot[v] > pot[u] + cost[e]) {
-                    pot[v] = pot[u] + cost[e];
-                    stop = false;
-                }
+    pair<Flow, Cost> minCostFlow(int _S, int _T) {
+        S = _S; T = _T;
+        SPFA();
+        while (1) {
+            while (1) {
+                REP(i,n) visited[i] = 0;
+                if (!findFlow(S, INF_FLOW)) break;
             }
+            if (!modifyLabel()) break;
         }
+        return make_pair(totalFlow, totalCost);
     }
 
-    bool dijkstra() {
-        typedef pair<ll, int> node;
-        priority_queue<node, vector<node>, greater<node> > que;
-
-        Rep(u, n) dist[u] = linf;
-        dist[s] = 0;
-        que.push(mp(0, s));
-
-        while (!que.empty()) {
-            ll dnow = que.top().fi;
-            int u = que.top().se;
-            que.pop();
-
-            if (dnow > dist[u]) continue;
-
-            for (int e = last[u]; e != -1; e = next[e]) if (flow[e] < cap[e]) {
-                int v = adj[e];
-                ll dnext = dnow + cost[e] + pot[u] - pot[v];
-
-                if (dist[v] > dnext) {
-                    dist[v] = dnext;
-                    which[v] = e;
-                    que.push(mp(dnext, v));
-                }
-            }
+private:
+    void SPFA() {
+        REP(i,n) dis[i] = INF_COST;
+        priority_queue< pair<Cost,int> > Q;
+        Q.push(make_pair(dis[S]=0, S));
+        while (!Q.empty()) {
+            int x = Q.top().second;
+            Cost d = -Q.top().first;
+            Q.pop();
+            if (dis[x] != d) continue;
+            for(int it = last[x]; it >= 0; it = edges[it].next)
+                if (edges[it].cap > 0 && dis[edges[it].to] > d + edges[it].cost)
+                    Q.push(make_pair(-(dis[edges[it].to] = d + edges[it].cost), edges[it].to));
         }
-
-        return dist[t] < linf;
+        Cost disT = dis[T]; REP(i,n) dis[i] = disT - dis[i];
     }
 
-    bool maxflow(ll desireFlow = linf) {
-        totalCost = totalFlow = 0;
-        bellman();
-
-        while (totalFlow < desireFlow) {
-            if (!dijkstra()) return false;
-
-            ll delta = desireFlow - totalFlow;
-            for (int v = t, e = which[v]; v != s; v = adj[e ^ 1], e = which[v]) delta = min(delta, cap[e] - flow[e]);
-            for (int v = t, e = which[v]; v != s; v = adj[e ^ 1], e = which[v]) {
-                flow[e] += delta;
-                flow[e ^ 1] -= delta;
-            }
-
-            totalFlow += delta;
-            totalCost += delta * (dist[t] - pot[s] + pot[t]);
-
-            Rep(u, n) pot[u] += dist[u];
+    Flow findFlow(int x, Flow flow) {
+        if (x == T) {
+            totalCost += dis[S] * flow;
+            totalFlow += flow;
+            return flow;
         }
+        visited[x] = 1;
+        Flow now = flow;
+        for(int it = last[x]; it >= 0; it = edges[it].next)
+            if (edges[it].cap && !visited[edges[it].to] && dis[edges[it].to] + edges[it].cost == dis[x]) {
+                Flow tmp = findFlow(edges[it].to, min(now, edges[it].cap));
+                edges[it].cap -= tmp;
+                edges[it ^ 1].cap += tmp;
+                now -= tmp;
+                if (!now) break;
+            }
+        return flow - now;
+    }
 
+    bool modifyLabel() {
+        Cost d = INF_COST;
+        REP(i,n) if (visited[i])
+            for(int it = last[i]; it >= 0; it = edges[it].next)
+                if (edges[it].cap && !visited[edges[it].to])
+                    d = min(d, dis[edges[it].to] + edges[it].cost - dis[i]);
+
+        if (d == INF_COST) return false;
+        REP(i,n) if (visited[i])
+            dis[i] += d;
         return true;
     }
-} mcf;
+};
 
-int n, m;
-string s[maxn];
-int a[maxn][maxn], b[maxn][maxn];
 
-int dr[4] = {0, +1, 0, -1};
-int dc[4] = {-1, 0, +1, 0};
+int m, n;
+char s[22][22];
+int h[22][22], v[22][22];
 
-bool inside(int r, int c){
-	return r >= 0 && r < n && c >= 0 && c < m;
-}
+const int dx[4] = {-1,0,1,0};
+const int dy[4] = {0,1,0,-1};
 
-void solve(int itest){
-	cin >> n >> m;
-	Rep(i, n) cin >> s[i];
-	Rep(i, n) Rep(j, m) cin >> a[i][j];
-	Rep(i, n) Rep(j, m) cin >> b[i][j];
-	mcf.init(2 + 3 * n * m, 0, 1 + 3 * n * m);
+#undef int
+int main() {
+#define int long long
+    ios::sync_with_stdio(0);
+    cin.tie(0);
+    cout << (fixed) << setprecision(9);
 
-	int num = 0;
-	Rep(i, n) Rep(j, m) if(s[i][j] != '#'){
-		int id = i * m + j + 1;
-		num++;
-		if((i + j) & 1){
-			mcf.add(0, id, 2, 0);
-			mcf.add(id, id + n * m, 1, 0);
-			mcf.add(id, id + n * m, 1, a[i][j]);
-			mcf.add(id, id + 2 * n * m, 1, 0);
-			mcf.add(id, id + 2 * n * m, 1, b[i][j]);
-			Rep(t, 4){
-				int ii = i + dr[t], jj = j + dc[t];
-				if(inside(ii, jj) && s[ii][jj] != '#'){
-					int id1 = ii * m + jj + 1;
-					if(!(t & 1)){
-						mcf.add(id + n * m, id1 + n * m, 1, 0);
-					} else mcf.add(id + 2 * n * m, id1 + 2 * n * m, 1, 0);
-				}
-			}
-		} else{
-			mcf.add(id, 1 + 3 * n * m, 2, 0);
-			mcf.add(id + n * m, id, 1, 0);
-			mcf.add(id + n * m, id, 1, a[i][j]);
-			mcf.add(id + 2 * n * m, id, 1, 0);
-			mcf.add(id + 2 * n * m, id, 1, b[i][j]);
-		}
-	}
-	mcf.maxflow();
-	if(mcf.totalFlow < num){
-		cout << "NO" << endl;
-	} else cout << "YES " << mcf.totalCost << endl;
+    int ntest; cin >> ntest;
+    while (ntest--) {
+        cin >> m >> n;
+        FOR(i,1,m) FOR(j,1,n) cin >> s[i][j];
+        FOR(i,1,m) FOR(j,1,n) cin >> h[i][j];
+        FOR(i,1,m) FOR(j,1,n) cin >> v[i][j];
 
-}
+        int N = m*n*2 + 2;
+        MinCostFlow<int,int> flow(N + 1);
 
-int main()
-{
-	ios::sync_with_stdio(0);
-	cin.tie(0);
+        int S = N-1, F = N;
+        int M = 1;
 
-	int test;
-	cin >> test;
-	Rep(itest, test){
-		solve(itest + 1);
-	}
-	cerr << clock() << endl;
+        int sum = 0;
 
-    return 0;
+        FOR(i,1,m) FOR(j,1,n) if (s[i][j] == '.') {
+            int id = (i-1) * n + j;
+            if ((i + j) % 2 == 0) {
+                flow.addEdge(S, id*2 - 1, 1, 0);
+                flow.addEdge(S, id*2 , 1, 0);
+                sum += 2;
+
+                for(int k=0; k<4; ++k){
+                    int x = i + dx[k], y = j + dy[k];
+                    if(x < 1 || x > m || y < 1 || y > n || s[x][y] != '.') continue;
+                    int id2 = (x-1)*n + y;
+                    flow.addEdge(id*2 - (k&1), id2*2 - (k&1), 1, 0);
+                }
+                flow.addEdge(id * 2 - 1, id * 2, 1, v[i][j]);
+                flow.addEdge(id * 2, id * 2 - 1, 1, h[i][j]);
+            }
+            else {
+                flow.addEdge(id*2 - 1, F, 1, 0);
+                flow.addEdge(id*2, F, 1, 0);
+                flow.addEdge(id * 2 - 1, id * 2, 1, h[i][j]);
+                flow.addEdge(id * 2, id * 2 - 1, 1, v[i][j]);
+            }
+        }
+        auto t = flow.minCostFlow(S, F);
+        if (t.first == sum) cout << "YES " << t.second << '\n';
+        else cout << "NO\n";
+    }
 }
